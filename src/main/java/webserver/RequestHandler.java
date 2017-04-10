@@ -4,6 +4,7 @@ import db.DataBase;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.HttpRequestUtils;
 import util.IOUtils;
 
 import java.io.*;
@@ -58,7 +59,7 @@ public class RequestHandler extends Thread {
                 DataBase.addUser(user);
 
                 DataOutputStream dos = new DataOutputStream(out);
-                response302Header(dos);
+                sendRedirectUrl(dos, "/index.html");
 
             } else if ("/user/login".equals(path)) {
                 log.debug("회원로그인");
@@ -71,17 +72,37 @@ public class RequestHandler extends Thread {
                 if (user == null || !password.equals(user.getPassword())) {
                     log.debug("로그인 실패");
                     DataOutputStream dos = new DataOutputStream(out);
-                    responseLoginFail(dos);
+                    dos.writeBytes("Set-Cookie : logined=false; Path=/ \n \r\n");
+                    sendRedirectUrl(dos, "/index.html");
                 } else {
                     log.debug("로그인 성공");
                     DataOutputStream dos = new DataOutputStream(out);
-                    response302LoginSuccessHeader(dos);
+                    dos.writeBytes("Set-Cookie : logined=true; Path=/ \n \r\n");
+                    sendRedirectUrl(dos, "/index.html");
                 }
 
-            }else {
+            } else if ("/user/list".equals(path)) {
+
+                Map<String, String> cookieMaps = HttpRequestUtils.parseCookies(headerMap.get("Cookie"));
+                String logined = cookieMaps.get("logined");
+                if ("true".equals(logined)) {
+                    StringBuilder builder = new StringBuilder();
+                    builder.append("sssss");
+                } else {
+                    DataOutputStream dos = new DataOutputStream(out);
+                    sendRedirectUrl(dos, "/user/login.html");
+                }
+
+            } else {
                 DataOutputStream dos = new DataOutputStream(out);
                 byte[] body = Files.readAllBytes(new File("./webapp" + path).toPath());
-                response200Header(dos, body.length);
+
+                if (path.contains(".css")) {
+                    responseCSSHeader(dos, body.length);
+                } else {
+                    response200Header(dos, body.length);
+                }
+
                 responseBody(dos, body);
             }
         } catch (IOException e) {
@@ -94,31 +115,20 @@ public class RequestHandler extends Thread {
         return tokens[1];
     }
 
-    private void response302LoginSuccessHeader(DataOutputStream dos) {
-        try {
-            dos.writeBytes("HTTP/1.1 302 Found\r\n");
-            dos.writeBytes("Location: /index.html\n \r\n");
-            dos.writeBytes("Set-Cookie : logined=true; Path=/ \n \r\n");
-            dos.writeBytes("\r\n");
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
-    }
-
-    private void responseLoginFail(DataOutputStream dos) {
-        try {
-            dos.writeBytes("HTTP/1.1 302 Found\r\n");
-            dos.writeBytes("Location: /user/login_failed.html\n \r\n");
-            dos.writeBytes("\r\n");
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
-    }
-
-    private void response302Header(DataOutputStream dos) {
+    private void sendRedirectUrl(DataOutputStream dos, String url) {
         try {
             dos.writeBytes("HTTP/1.1 302 Found \r\n");
-            dos.writeBytes("Location: /index.html\n \r\n");
+            dos.writeBytes("Location: " +url+"\n \r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void responseCSSHeader(DataOutputStream dos, int lengthOfBodyContent) {
+        try {
+            dos.writeBytes("HTTP/1.1 200 OK \r\n");
+            dos.writeBytes("Content-Type: text/css;charset=utf-8\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());

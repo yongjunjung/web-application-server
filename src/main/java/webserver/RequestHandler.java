@@ -20,6 +20,9 @@ public class RequestHandler extends Thread {
 
     private Socket connection;
 
+    HttpResponse response = new HttpResponse();
+    HttpRequest request = new HttpRequest();
+
     public RequestHandler(Socket connectionSocket) {
         this.connection = connectionSocket;
     }
@@ -37,7 +40,7 @@ public class RequestHandler extends Thread {
                 return ;
             }
 
-            String path = getRequestPath(line);
+            String path = request.getRequestPath(line);
 
             Map<String, String> headerMap = new HashMap<String, String>();
 
@@ -59,7 +62,7 @@ public class RequestHandler extends Thread {
                 DataBase.addUser(user);
 
                 DataOutputStream dos = new DataOutputStream(out);
-                sendRedirectUrl(dos, "/index.html");
+                response.sendRedirectUrl(dos, "/index.html");
 
             } else if ("/user/login".equals(path)) {
                 log.debug("회원로그인");
@@ -72,13 +75,13 @@ public class RequestHandler extends Thread {
                 if (user == null || !password.equals(user.getPassword())) {
                     log.debug("로그인 실패");
                     DataOutputStream dos = new DataOutputStream(out);
-                    dos.writeBytes("Set-Cookie : logined=false; Path=/ \n \r\n");
-                    sendRedirectUrl(dos, "/index.html");
+                    response.addResponseHeader("Set-Cookie", "logined=false; Path=/");
+                    response.sendRedirectUrl(dos, "/index.html");
                 } else {
                     log.debug("로그인 성공");
                     DataOutputStream dos = new DataOutputStream(out);
-                    dos.writeBytes("Set-Cookie : logined=true; Path=/ \n \r\n");
-                    sendRedirectUrl(dos, "/index.html");
+                    response.addResponseHeader("Set-Cookie", "logined=true; Path=/");
+                    response.sendRedirectUrl(dos, "/index.html");
                 }
 
             } else if ("/user/list".equals(path)) {
@@ -90,7 +93,7 @@ public class RequestHandler extends Thread {
                     builder.append("sssss");
                 } else {
                     DataOutputStream dos = new DataOutputStream(out);
-                    sendRedirectUrl(dos, "/user/login.html");
+                    response.sendRedirectUrl(dos, "/user/login.html");
                 }
 
             } else {
@@ -110,20 +113,6 @@ public class RequestHandler extends Thread {
         }
     }
 
-    private String getRequestPath(String line) {
-        String[] tokens = line.split(" ");
-        return tokens[1];
-    }
-
-    private void sendRedirectUrl(DataOutputStream dos, String url) {
-        try {
-            dos.writeBytes("HTTP/1.1 302 Found \r\n");
-            dos.writeBytes("Location: " +url+"\n \r\n");
-            dos.writeBytes("\r\n");
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
-    }
 
     private void responseCSSHeader(DataOutputStream dos, int lengthOfBodyContent) {
         try {
